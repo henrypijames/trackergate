@@ -250,6 +250,7 @@ class TrackerGate
 
   endJob: (job) ->
     delete @jobqueue[job.id]
+    return null
 
   resClient: (req, res) =>
     job = new Job(req, res, @)
@@ -287,12 +288,12 @@ class TrackerGate
     while date - @repqueue[0][0] >= @trackertimeout * 1000
       [date, jobid, status] = @repqueue.shift()
       job = @jobqueue[jobid]
-      return null if not job or job.status != status
+      continue if not job or job.status != status
       switch status
         when JOBCONNREQ
-          return job.expireReq('tracker connect timeout')
+          job.expireReq('tracker connect timeout')
         when JOBANNREQ
-          return job.expireReq('tracker announce timeout')
+          job.expireReq('tracker announce timeout')
     return null
 
   run: () ->
