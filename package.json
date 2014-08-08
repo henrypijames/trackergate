@@ -1,0 +1,23 @@
+{
+  "name": "trackergate",
+  "version": "0.2.1-20140808",
+  "description": "BitTorrent tracker proxy that helps clients announce to UDP trackers via HTTPS",
+  "keywords": ["bittorrent", "tracker", "udp", "proxy"],
+  "homepage": "https://github.com/henrypijames/trackergate",
+  "license": "GPL-3.0+",
+  "author": "Henry 'Pi' James",
+  "bin": {
+    "trackergate": "./trackergate.js"
+  },
+  "repository": "git://github.com/henrypijames/trackergate",
+  "scripts": {},
+  "dependencies": {
+    "long": "*"
+  },
+  "devDependencies": {
+    "coffee-script": "~1.7.0"
+  },
+  "engines": [
+    "node >= 0.10.0"
+  ]
+}
