@@ -25,7 +25,7 @@ config.httpsops =
   key: fs.readFileSync(path.resolve(config.httpskey))
   cert: fs.readFileSync(path.resolve(config.httpscert))
 
-EVENT = {'': 0, 'completed': 1, 'started': 2, 'stopped': 3}
+EVENT = ['', 'completed', 'started', 'stopped']
 HEADERLEN = 8
 CONNREQLEN = 16
 CONNRESLEN = 16
@@ -101,8 +101,14 @@ bencode = (data, prev) ->
 class Job
   constructor: (@req, @res, @trackergate) ->
     @id = @report(JOBINIT)
-    return @resError(400, reqerr) if reqerr = @parseReq() # 400 Bad Request
-    return @resError(403, autherr) if autherr = @authReq() # 403 Forbidden (not sending 401 Unauthorized or 407 Proxy Authentication Required since both require an authentication challenge via WWW-Authenticate)
+    if err = @parseReq()
+      @resError(400, err) # 400 Bad Request
+      console.log(@req.url)
+      return @err = err
+    if err = @authReq()
+      @resError(403, autherr) # 403 Forbidden (not sending 401 Unauthorized or 407 Proxy Authentication Required since both require an authentication challenge via WWW-Authenticate)
+      console.log(@gatewayauth)
+      return @err = err
 
   report: (status) ->
     date = Date.now()
@@ -130,8 +136,8 @@ class Job
     return 'Invalid left bytes' if @annreq.left < 0
     @annreq.uploaded = Long.fromString(query['uploaded'] or '-1')
     return 'Invalid uploaded bytes' if @annreq.uploaded < 0
-    @annreq.event = EVENT[query['event'] or '']
-    return 'Invalid announce event' if @annreq.event == undefined
+    @annreq.event = EVENT.indexOf(query['event'] or '')
+    return 'Invalid announce event' if @annreq.event < 0
     @annreq.ip = parseIPv4(query['ip'] or @req.connection.remoteAddress) # only IPv4 supported for now
     return 'Invalid client IP' if @annreq.ip == undefined
     @annreq.key = parseInt(query['key'] or '0', 16)
@@ -214,7 +220,6 @@ class Job
     return null
 
   resError: (code, msg) ->
-    @err = [code, msg]
     @res.writeHead(code, msg)
     @res.write(bencode({'failure reason': msg}))
     @res.end()
@@ -284,8 +289,7 @@ class TrackerGate
 
   tick: () =>
     date = Date.now()
-    return null if @repqueue.length == 0
-    while date - @repqueue[0][0] >= @trackertimeout * 1000
+    while @repqueue.length > 0 and date - @repqueue[0][0] >= @trackertimeout * 1000
       [date, jobid, status] = @repqueue.shift()
       job = @jobqueue[jobid]
       continue if not job or job.status != status
