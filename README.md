@@ -1,8 +1,10 @@
-﻿# ***trackergate*** - BitTorrent tracker proxy that helps clients announce to UDP trackers via HTTPS
+﻿# trackergate
+
+BitTorrent tracker proxy that helps clients announce to UDP trackers via HTTPS
 
 ## Introduction
 
-As [more](http://openbittorrent.com/) [and](http://publicbt.com/) [more](http://istole.it/) BitTorrent trackers [offer](http://demonii.com/) [support](http://coppersurfer.tk/) for the [UDP tacker protocol](http://www.bittorrent.org/beps/bep_0015.html), some ISPs are blocking it in their evil attempt to curb BitTorrent traffic. ***trackergate*** helps overcome that barrier by providing a HTTPS-to-UDP-and-back-to-HTTPS proxy for the `announce` message.
+As [more](http://openbittorrent.com/) [and](http://publicbt.com/) [more](http://istole.it/) BitTorrent trackers [offer](http://demonii.com/) [support](http://coppersurfer.tk/) for the [UDP tacker protocol](http://www.bittorrent.org/beps/bep_0015.html), some ISPs are blocking it in their evil attempt to curb BitTorrent traffic. **trackergate** helps overcome that barrier by providing a HTTPS-to-UDP-and-back-to-HTTPS proxy for the `announce` message.
 
 ## Usage
 
@@ -17,8 +19,7 @@ You need to run trackergate on a computer where you has the priveledges to:
 
 (Until proper installation is implemented...)
 
-Install trackergate by downloading all files from this repository, then:
-
+Install trackergate by downloading all files from this repository, then:  
 `npm install .`
 
 ### Configuration
@@ -31,7 +32,10 @@ You can generate SSL key and certificate properly using [openssl](http://www.ssl
 
 ### Announce
 
-In your BitTorrent client, find the UDP tracker you cannot announce to directly, then replace `udp://[tracker.hostname]:[port]` with `https://[trackergate.hostname]:[port]/[passkey]/[tracker.hostname]/[port]/announce`
+In your BitTorrent client, find the UDP tracker you cannot announce to directly, then replace:  
+`udp://[tracker.hostname]:[port]`  
+with:  
+`https://[trackergate.hostname]:[port]/[passkey]/[tracker.hostname]/[port]/announce`
 
 ## Author
 

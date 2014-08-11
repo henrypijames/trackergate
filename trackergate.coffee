@@ -104,11 +104,11 @@ class Job
     if err = @parseReq()
       @resError(400, err) # 400 Bad Request
       console.log(@req.url)
-      return @err = err
+      return @reqerr = err
     if err = @authReq()
-      @resError(403, autherr) # 403 Forbidden (not sending 401 Unauthorized or 407 Proxy Authentication Required since both require an authentication challenge via WWW-Authenticate)
+      @resError(403, err) # 403 Forbidden (not sending 401 Unauthorized or 407 Proxy Authentication Required since both require an authentication challenge via WWW-Authenticate)
       console.log(@gatewayauth)
-      return @err = err
+      return @reqerr = err
 
   report: (status) ->
     date = Date.now()
@@ -160,7 +160,9 @@ class Job
     data.writeUInt32BE(0, 8) # action
     transid = @id * 2
     data.writeUInt32BE(transid, 12)
-    onReqConnect = () => @report(JOBCONNREQ)
+    onReqConnect = (err, bytes) =>
+      return @resError(500, 'Error connecting to tracker: ' + err.message) if err # 500 Internal Server Error
+      @report(JOBCONNREQ)
     @trackergate.udpserver.send(data, 0, CONNREQLEN, @trackerport, @trackerhost, onReqConnect)
     return null
 
@@ -189,7 +191,9 @@ class Job
     data.writeUInt32BE(@annreq.key, 88)
     data.writeInt32BE(@annreq.numwant, 92)
     data.writeUInt16BE(@annreq.port, 96)
-    onReqAnnounce = () => @report(JOBANNREQ)
+    onReqAnnounce = (err, bytes) =>
+      return @resError(500, 'Error announcing to tracker: ' + err.message) if err # 500 Internal Server Error
+      @report(JOBANNREQ)
     @trackergate.udpserver.send(data, 0, ANNREQLEN, @trackerport, @trackerhost, onReqAnnounce)
     return null
 
@@ -237,6 +241,12 @@ class TrackerGate
     @repqueue = []
     @httpsserver = https.createServer(httpsops, @resClient)
     @udpserver = dgram.createSocket('udp4', @resTracker)
+    onHTTPSClientError = (err, socket) =>
+      console.log('HTTPS client error: ' + err + socket)
+    onUDPError = (err) =>
+      console.log('UDP error: ' + err)
+    @httpsserver.on('clientError', onHTTPSClientError)
+    @udpserver.on('error', onUDPError)
 
   genID: () ->
     loop
@@ -259,7 +269,7 @@ class TrackerGate
 
   resClient: (req, res) =>
     job = new Job(req, res, @)
-    return job.err if job.err
+    return job.reqerr if job.reqerr
     @jobqueue[job.id] = job
     job.reqConnect()
     return null
