@@ -6,6 +6,8 @@ BitTorrent tracker proxy that helps clients announce to UDP trackers via HTTPS
 
 As [more](http://openbittorrent.com/) [and](http://publicbt.com/) [more](http://istole.it/) BitTorrent trackers [offer](http://demonii.com/) [support](http://coppersurfer.tk/) for the [UDP tacker protocol](http://www.bittorrent.org/beps/bep_0015.html), some ISPs are blocking it in their evil attempt to curb BitTorrent traffic. **trackergate** helps overcome that barrier by providing a HTTPS-to-UDP-and-back-to-HTTPS proxy for the `announce` message.
 
+trackergate is similar to [SpooferBT](https://github.com/mcourteaux/SpooferBT), but without the need to run a local service on the client end.
+
 ## Usage
 
 ### System requirement

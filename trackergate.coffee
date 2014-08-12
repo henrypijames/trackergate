@@ -103,11 +103,10 @@ class Job
     @id = @report(JOBINIT)
     if err = @parseReq()
       @resError(400, err) # 400 Bad Request
-      console.log(@req.url)
-      return @reqerr = err
-    if err = @authReq()
+    else if err = @authReq()
       @resError(403, err) # 403 Forbidden (not sending 401 Unauthorized or 407 Proxy Authentication Required since both require an authentication challenge via WWW-Authenticate)
-      console.log(@gatewayauth)
+    if err
+      console.log(':', @req.connection.remoteAddress + ':' + @req.connection.remotePort, @req.url)
       return @reqerr = err
 
   report: (status) ->
@@ -146,7 +145,7 @@ class Job
     return 'Invalid number of wanted peers' if isNaN(@annreq.numwant) or @annreq.numwant < -1 or @annreq.numwant > 0x7fffffff
     @annreq.port = parseInt(query['port'])
     return 'Invalid client port' if isNaN(@annreq.port) or @annreq.numwant < 0 or @annreq.port > 0xffff
-    console.log('>', @id, @req.connection.remoteAddress + ':' + @req.connection.remotePort, @trackerhost + ':' + @trackerport, @annreq.infohash.toString('hex'))
+    console.log('>', '#' + @id, @req.connection.remoteAddress + ':' + @req.connection.remotePort, @trackerhost + ':' + @trackerport, @annreq.infohash.toString('hex'))
     return null
 
   authReq: () ->
@@ -214,7 +213,7 @@ class Job
     @res.write(bencode(@annres), 'binary')
     @res.end()
     @report(JOBDONE)
-    console.log('<', @id)
+    console.log('<', '#' + @id, @annres.peers.length / ANNRESSTEP)
     return @id
 
   parseErrRes: (job, data) ->
@@ -224,15 +223,15 @@ class Job
     return null
 
   resError: (code, msg) ->
+    @trackergate.endJob(@)
     @res.writeHead(code, msg)
     @res.write(bencode({'failure reason': msg}))
     @res.end()
     @report(JOBERR)
-    console.log('!', @id, code, msg)
+    console.log('-', '#' + @id, code, msg)
     return @id
 
   expireReq: (msg) ->
-    @trackergate.endJob(@)
     return @resError(504, msg) # 504 Gateway Timeout
 
 class TrackerGate
@@ -241,26 +240,24 @@ class TrackerGate
     @repqueue = []
     @httpsserver = https.createServer(httpsops, @resClient)
     @udpserver = dgram.createSocket('udp4', @resTracker)
-    onHTTPSClientError = (err, socket) =>
-      console.log('HTTPS client error: ' + err + socket)
+    onHTTPSClientError = (err, secpair) =>
+      console.log('! HTTPS:', err) ## not sure how to get client address and port, see: http://stackoverflow.com/questions/25257709
     onUDPError = (err) =>
-      console.log('UDP error: ' + err)
+      console.log('! UDP:', err)
     @httpsserver.on('clientError', onHTTPSClientError)
     @udpserver.on('error', onUDPError)
 
   genID: () ->
-    loop
+    while not jobid or jobid of @jobqueue
       jobid = Math.floor(Math.random() * 0x80000000)
-      break if jobid not of @jobqueue
     return jobid
 
   recReport: (date, job) ->
-    jobid = job.id
+    jobid = job.id or @genID()
     status = job.status
     rep = [date, jobid, status]
     @repqueue.push(rep)
-    jobid ?= rep[1] = @genID()
-    console.log(new Date(date).toISOString(), jobid + ':' + status)
+    console.log(new Date(date).toISOString(), '#' + jobid + ':' + status)
     return jobid
 
   endJob: (job) ->
