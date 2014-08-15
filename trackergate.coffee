@@ -41,6 +41,14 @@ JOBANNREQ = 3
 JOBANNRES = 4
 JOBDONE = 5
 JOBERR = 6
+STATUS = [
+  'client request received',
+  'connecting tracker',
+  'tracker connected',
+  'announcing to tracker',
+  'announce response received',
+  'success',
+  'error']
 
 parseIPv4 = (str) ->
   octets = str.split('.')
@@ -213,7 +221,7 @@ class Job
     @res.write(bencode(@annres), 'binary')
     @res.end()
     @report(JOBDONE)
-    console.log('<', '#' + @id, @annres.peers.length / ANNRESSTEP)
+    console.log('<', '#' + @id, 'S/L/P', @annres.complete, @annres.incomplete, @annres.peers.length / ANNRESSTEP)
     return @id
 
   parseErrRes: (job, data) ->
@@ -257,7 +265,7 @@ class TrackerGate
     status = job.status
     rep = [date, jobid, status]
     @repqueue.push(rep)
-    console.log(new Date(date).toISOString(), '#' + jobid + ':' + status)
+    console.log(new Date(date).toISOString(), '#' + jobid, status, STATUS[status])
     return jobid
 
   endJob: (job) ->
@@ -288,10 +296,10 @@ class TrackerGate
         job.parseAnnRes(msg)
         job.resAnnounce()
       when 2 # scrape
-        return 'scrape not yet implemented' # so WTF does this response come from?
+        return 'Scrape not yet implemented' # so WTF does this response come from?
       when 3 # error
         job.parseErrRes(msg)
-        job.resError(500, 'tracker error: ' + job.trackererr) # 500 Internal Server Error
+        job.resError(500, 'Tracker error: ' + job.trackererr) # 500 Internal Server Error
     return null
 
   tick: () =>
@@ -302,9 +310,9 @@ class TrackerGate
       continue if not job or job.status != status
       switch status
         when JOBCONNREQ
-          job.expireReq('tracker connect timeout')
+          job.expireReq('Tracker connect timeout')
         when JOBANNREQ
-          job.expireReq('tracker announce timeout')
+          job.expireReq('Tracker announce timeout')
     return null
 
   run: () ->

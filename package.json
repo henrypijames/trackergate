@@ -1,6 +1,6 @@
 {
   "name": "trackergate",
-  "version": "0.2.1-20140808",
+  "version": "0.2.2-20140815",
   "description": "BitTorrent tracker proxy that helps clients announce to UDP trackers via HTTPS",
   "keywords": ["bittorrent", "tracker", "udp", "proxy"],
   "homepage": "https://github.com/henrypijames/trackergate",
