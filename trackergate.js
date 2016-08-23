@@ -1,2 +1,482 @@
 #!/usr/bin/env node
-(function(){var p,q,k,g,f,r,m,s,t,e,l,u,n=function(b,a){return function(){return b.apply(a,arguments)}};s=require("https");r=require("dgram");m=require("fs");e=require("path");u=require("url");l=require("querystring");l.escape=escape;l.unescape=unescape;k=require("long");f=require("./config.json");f.httpsops={key:m.readFileSync(e.resolve(f.httpskey)),cert:m.readFileSync(e.resolve(f.httpscert))};p=["","completed","started","stopped"];t=function(b){var a,c,d,h;c=b.split(".");if(4===c.length){b=d=0;for(h=c.length;d<h;b=++d){a=c[b];a=parseInt(a);if(isNaN(a)||0>a||255<a)return;c[b]=a}return new Buffer(c)}};g=function(b,a){var c,d,h;null==a&&(a=new Buffer(0));switch(typeof b){case "number":c="i"+b+"e";d=new Buffer(a.length+Buffer.byteLength(c));a.copy(d);d.write(c,a.length);break;case "string":c=Buffer.byteLength(b)+":"+b;d=new Buffer(a.length+Buffer.byteLength(c));a.copy(d);d.write(c,a.length,"binary");break;case "object":if(b instanceof Array){d=new Buffer(a.length+1);a.copy(d);d.write("l",a.length,"binary");a=d;d=0;for(h=b.length;d<h;d++)c=b[d],a=g(b[c],a);d=new Buffer(a.length+1);a.copy(d);d.write("e",a.length,"binary")}else if(b instanceof Buffer)c=b.length+":",d=new Buffer(a.length+Buffer.byteLength(c)+b.length),a.copy(d),d.write(c,a.length),b.copy(d,a.length+Buffer.byteLength(c));else{d=new Buffer(a.length+1);a.copy(d);d.write("d",a.length,"binary");a=d;for(c in b)a=g(c,a),a=g(b[c],a);d=new Buffer(a.length+1);a.copy(d);d.write("e",a.length,"binary")}}return d};q=function(){function b(a,c,d){var b;this.req=a;this.res=c;this.trackergate=d;this.id=this.report(0);(b=this.parseReq())?this.resError(400,b):(b=this.authReq())&&this.resError(403,b);if(b)return console.log(":",this.req.connection.remoteAddress+":"+this.req.connection.remotePort,this.req.url),this.reqerr=b}b.prototype.report=function(a){var c;c=Date.now();this.status=a;return this.trackergate.recReport(c,this)};b.prototype.parseReq=function(){var a;a=u.parse(this.req.url);e=a.pathname.split("/");if(5!==e.length||""!==e[0]||"announce"!==e[4])return"Invalid request path";this.gatewayauth=e[1];this.trackerhost=e[2];if(""===this.trackerhost)return"Invalid tracker hostname";this.trackerport=parseInt(e[3]);if(isNaN(this.trackerport)||0>this.trackerport||65535<this.trackerport)return"Invalid tracker port";this.annreq={};a=l.parse(a.query);this.annreq.infohash=new Buffer(a.info_hash||"","binary");if(20!==this.annreq.infohash.length)return"Invalid info hash";this.annreq.peerid=new Buffer(a.peer_id||"","binary");if(20!==this.annreq.peerid.length)return"Invalid peer ID";this.annreq.downloaded=k.fromString(a.downloaded||"-1");if(0>this.annreq.downloaded)return"Invalid downloaded bytes";this.annreq.left=k.fromString(a.left||"-1");if(0>this.annreq.left)return"Invalid left bytes";this.annreq.uploaded=k.fromString(a.uploaded||"-1");if(0>this.annreq.uploaded)return"Invalid uploaded bytes";this.annreq.event=p.indexOf(a.event||"");if(0>this.annreq.event)return"Invalid announce event";this.annreq.ip=t(a.ip||this.req.connection.remoteAddress);if(void 0===this.annreq.ip)return"Invalid client IP";this.annreq.key=parseInt(a.key||"0",16);if(isNaN(this.annreq.key)||0>this.annreq.key||4294967295<this.annreq.key)return"Invalid announce key";this.annreq.numwant=parseInt(a.numwant||"-1");if(isNaN(this.annreq.numwant)||-1>this.annreq.numwant||2147483647<this.annreq.numwant)return"Invalid number of wanted peers";this.annreq.port=parseInt(a.port);if(isNaN(this.annreq.port)||0>this.annreq.numwant||65535<this.annreq.port)return"Invalid client port";console.log(">","#"+this.id,this.req.connection.remoteAddress+":"+this.req.connection.remotePort,this.trackerhost+":"+this.trackerport,this.annreq.infohash.toString("hex"));return null};b.prototype.authReq=function(){return this.gatewayauth!==f.passkey?"Gateway authentication failed":null};b.prototype.reqConnect=function(){var a,c;a=new Buffer(16);a.write("0000041727101980",0,8,"hex");a.writeUInt32BE(0,8);a.writeUInt32BE(2*this.id,12);c=function(a){return function(c,b){return c?a.resError(500,"Error connecting to tracker: "+c.message):a.report(1)}}(this);this.trackergate.udpserver.send(a,0,16,this.trackerport,this.trackerhost,c);return null};b.prototype.parseConnRes=function(a){if(16>a.length)return this.resError(502,"Invalid connect response from tracker");this.connid=new Buffer(8);a.copy(this.connid,0,8,16);return null};b.prototype.reqAnnounce=function(){var a,c;a=new Buffer(98);this.connid.copy(a,0);a.writeUInt32BE(1,8);a.writeUInt32BE(2*this.id+1,12);this.annreq.infohash.copy(a,16);this.annreq.peerid.copy(a,36);a.writeUInt32BE(this.annreq.downloaded.high,56);a.writeUInt32BE(this.annreq.downloaded.low,60);a.writeUInt32BE(this.annreq.left.high,64);a.writeUInt32BE(this.annreq.left.low,68);a.writeUInt32BE(this.annreq.uploaded.high,72);a.writeUInt32BE(this.annreq.uploaded.low,76);a.writeUInt32BE(this.annreq.event,80);this.annreq.ip.copy(a,84);a.writeUInt32BE(this.annreq.key,88);a.writeInt32BE(this.annreq.numwant,92);a.writeUInt16BE(this.annreq.port,96);c=function(a){return function(c,b){return c?a.resError(500,"Error announcing to tracker: "+c.message):a.report(3)}}(this);this.trackergate.udpserver.send(a,0,98,this.trackerport,this.trackerhost,c);return null};b.prototype.parseAnnRes=function(a){var c;c=a.length-20;if(20>a.length||0!==c%6)return this.resError(502,"Invalid announce response from tracker");this.annres={};this.annres.interval=a.readUInt32BE(8);this.annres.incomplete=a.readUInt32BE(12);this.annres.complete=a.readUInt32BE(16);this.annres.peers=new Buffer(c);a.copy(this.annres.peers,0,20);return null};b.prototype.resAnnounce=function(){this.trackergate.endJob(this);this.res.writeHead(200);this.res.write(g(this.annres),"binary");this.res.end();this.report(5);console.log("<","#"+this.id,this.annres.peers.length/6);return this.id};b.prototype.parseErrRes=function(a,c){this.trackererr=new Buffer(c.length-8);c.copy(this.trackererr,0,8);return null};b.prototype.resError=function(a,c){this.trackergate.endJob(this);this.res.writeHead(a,c);this.res.write(g({"failure reason":c}));this.res.end();this.report(6);console.log("-","#"+this.id,a,c);return this.id};b.prototype.expireReq=function(a){return this.resError(504,a)};return b}();(new (function(){function b(a,c,d,b){this.httpsops=a;this.httpsport=c;this.udpport=d;this.trackertimeout=b;this.tick=n(this.tick,this);this.resTracker=n(this.resTracker,this);this.resClient=n(this.resClient,this);this.jobqueue={};this.repqueue=[];this.httpsserver=s.createServer(a,this.resClient);this.udpserver=r.createSocket("udp4",this.resTracker);a=function(a){return function(a,c){return console.log("! HTTPS:",a)}}(this);c=function(a){return function(a){return console.log("! UDP:",a)}}(this);this.httpsserver.on("clientError",a);this.udpserver.on("error",c)}b.prototype.genID=function(){for(var a;!a||a in this.jobqueue;)a=Math.floor(2147483648*Math.random());return a};b.prototype.recReport=function(a,c){var d,b;d=c.id||this.genID();b=c.status;this.repqueue.push([a,d,b]);console.log((new Date(a)).toISOString(),"#"+d+":"+b);return d};b.prototype.endJob=function(a){delete this.jobqueue[a.id];return null};b.prototype.resClient=function(a,c){var d;d=new q(a,c,this);if(d.reqerr)return d.reqerr;this.jobqueue[d.id]=d;d.reqConnect();return null};b.prototype.resTracker=function(a,c){var d,b;if(8>a.length)return"Tracker response too short";d=a.readUInt32BE(0);b=a.readUInt32BE(4);b=this.jobqueue[Math.floor(b/2)];if(!b)return"Tracker response not matching any client request";switch(d){case 0:b.report(2);b.parseConnRes(a);b.reqAnnounce();break;case 1:b.report(4);b.parseAnnRes(a);b.resAnnounce();break;case 2:return"scrape not yet implemented";case 3:b.parseErrRes(a),b.resError(500,"tracker error: "+b.trackererr)}return null};b.prototype.tick=function(){var a,b,d;for(a=Date.now();0<this.repqueue.length&&a-this.repqueue[0][0]>=1E3*this.trackertimeout;)if(d=this.repqueue.shift(),a=d[0],b=d[1],d=d[2],(b=this.jobqueue[b])&&b.status===d)switch(d){case 1:b.expireReq("tracker connect timeout");break;case 3:b.expireReq("tracker announce timeout")}return null};b.prototype.run=function(){this.httpsserver.listen(this.httpsport);this.udpserver.bind(this.udpport);return setInterval(this.tick,1E3)};return b}())(f.httpsops,f.httpsport,f.udpport,f.trackertimeout)).run()}).call(this);(function(){var p,q,k,r,h,g,s,m,t,u,f,l,v,n=function(b,a){return function(){return b.apply(a,arguments)}};t=require("https");s=require("dgram");m=require("fs");f=require("path");v=require("url");l=require("querystring");l.escape=escape;l.unescape=unescape;k=require("long");g=require("./config.json");g.httpsops={key:m.readFileSync(f.resolve(g.httpskey)),cert:m.readFileSync(f.resolve(g.httpscert))};p=["","completed","started","stopped"];r="client request received;connecting tracker;tracker connected;announcing to tracker;announce response received;success;error".split(";");u=function(b){var a,c,d,e;c=b.split(".");if(4===c.length){b=d=0;for(e=c.length;d<e;b=++d){a=c[b];a=parseInt(a);if(isNaN(a)||0>a||255<a)return;c[b]=a}return new Buffer(c)}};h=function(b,a){var c,d,e;null==a&&(a=new Buffer(0));switch(typeof b){case "number":c="i"+b+"e";d=new Buffer(a.length+Buffer.byteLength(c));a.copy(d);d.write(c,a.length);break;case "string":c=Buffer.byteLength(b)+":"+b;d=new Buffer(a.length+Buffer.byteLength(c));a.copy(d);d.write(c,a.length,"binary");break;case "object":if(b instanceof Array){d=new Buffer(a.length+1);a.copy(d);d.write("l",a.length,"binary");a=d;d=0;for(e=b.length;d<e;d++)c=b[d],a=h(b[c],a);d=new Buffer(a.length+1);a.copy(d);d.write("e",a.length,"binary")}else if(b instanceof Buffer)c=b.length+":",d=new Buffer(a.length+Buffer.byteLength(c)+b.length),a.copy(d),d.write(c,a.length),b.copy(d,a.length+Buffer.byteLength(c));else{d=new Buffer(a.length+1);a.copy(d);d.write("d",a.length,"binary");a=d;for(c in b)a=h(c,a),a=h(b[c],a);d=new Buffer(a.length+1);a.copy(d);d.write("e",a.length,"binary")}}return d};q=function(){function b(a,c,d){var b;this.req=a;this.res=c;this.trackergate=d;this.id=this.report(0);(b=this.parseReq())?this.resError(400,b):(b=this.authReq())&&this.resError(403,b);if(b)return console.log(":",this.req.connection.remoteAddress+":"+this.req.connection.remotePort,this.req.url),this.reqerr=b}b.prototype.report=function(a){var c;c=Date.now();this.status=a;return this.trackergate.recReport(c,this)};b.prototype.parseReq=function(){var a;a=v.parse(this.req.url);f=a.pathname.split("/");if(5!==f.length||""!==f[0]||"announce"!==f[4])return"Invalid request path";this.gatewayauth=f[1];this.trackerhost=f[2];if(""===this.trackerhost)return"Invalid tracker hostname";this.trackerport=parseInt(f[3]);if(isNaN(this.trackerport)||0>this.trackerport||65535<this.trackerport)return"Invalid tracker port";this.annreq={};a=l.parse(a.query);this.annreq.infohash=new Buffer(a.info_hash||"","binary");if(20!==this.annreq.infohash.length)return"Invalid info hash";this.annreq.peerid=new Buffer(a.peer_id||"","binary");if(20!==this.annreq.peerid.length)return"Invalid peer ID";this.annreq.downloaded=k.fromString(a.downloaded||"-1");if(0>this.annreq.downloaded)return"Invalid downloaded bytes";this.annreq.left=k.fromString(a.left||"-1");if(0>this.annreq.left)return"Invalid left bytes";this.annreq.uploaded=k.fromString(a.uploaded||"-1");if(0>this.annreq.uploaded)return"Invalid uploaded bytes";this.annreq.event=p.indexOf(a.event||"");if(0>this.annreq.event)return"Invalid announce event";this.annreq.ip=u(a.ip||this.req.connection.remoteAddress);if(void 0===this.annreq.ip)return"Invalid client IP";this.annreq.key=parseInt(a.key||"0",16);if(isNaN(this.annreq.key)||0>this.annreq.key||4294967295<this.annreq.key)return"Invalid announce key";this.annreq.numwant=parseInt(a.numwant||"-1");if(isNaN(this.annreq.numwant)||-1>this.annreq.numwant||2147483647<this.annreq.numwant)return"Invalid number of wanted peers";this.annreq.port=parseInt(a.port);if(isNaN(this.annreq.port)||0>this.annreq.numwant||65535<this.annreq.port)return"Invalid client port";console.log(">","#"+this.id,this.req.connection.remoteAddress+":"+this.req.connection.remotePort,this.trackerhost+":"+this.trackerport,this.annreq.infohash.toString("hex"));return null};b.prototype.authReq=function(){return this.gatewayauth!==g.passkey?"Gateway authentication failed":null};b.prototype.reqConnect=function(){var a,c;a=new Buffer(16);a.write("0000041727101980",0,8,"hex");a.writeUInt32BE(0,8);a.writeUInt32BE(2*this.id,12);c=function(a){return function(c,b){return c?a.resError(500,"Error connecting to tracker: "+c.message):a.report(1)}}(this);this.trackergate.udpserver.send(a,0,16,this.trackerport,this.trackerhost,c);return null};b.prototype.parseConnRes=function(a){if(16>a.length)return this.resError(502,"Invalid connect response from tracker");this.connid=new Buffer(8);a.copy(this.connid,0,8,16);return null};b.prototype.reqAnnounce=function(){var a,c;a=new Buffer(98);this.connid.copy(a,0);a.writeUInt32BE(1,8);a.writeUInt32BE(2*this.id+1,12);this.annreq.infohash.copy(a,16);this.annreq.peerid.copy(a,36);a.writeUInt32BE(this.annreq.downloaded.high,56);a.writeUInt32BE(this.annreq.downloaded.low,60);a.writeUInt32BE(this.annreq.left.high,64);a.writeUInt32BE(this.annreq.left.low,68);a.writeUInt32BE(this.annreq.uploaded.high,72);a.writeUInt32BE(this.annreq.uploaded.low,76);a.writeUInt32BE(this.annreq.event,80);this.annreq.ip.copy(a,84);a.writeUInt32BE(this.annreq.key,88);a.writeInt32BE(this.annreq.numwant,92);a.writeUInt16BE(this.annreq.port,96);c=function(a){return function(c,b){return c?a.resError(500,"Error announcing to tracker: "+c.message):a.report(3)}}(this);this.trackergate.udpserver.send(a,0,98,this.trackerport,this.trackerhost,c);return null};b.prototype.parseAnnRes=function(a){var c;c=a.length-20;if(20>a.length||0!==c%6)return this.resError(502,"Invalid announce response from tracker");this.annres={};this.annres.interval=a.readUInt32BE(8);this.annres.incomplete=a.readUInt32BE(12);this.annres.complete=a.readUInt32BE(16);this.annres.peers=new Buffer(c);a.copy(this.annres.peers,0,20);return null};b.prototype.resAnnounce=function(){this.trackergate.endJob(this);this.res.writeHead(200);this.res.write(h(this.annres),"binary");this.res.end();this.report(5);console.log("<","#"+this.id,"S/L/P",this.annres.complete,this.annres.incomplete,this.annres.peers.length/6);return this.id};b.prototype.parseErrRes=function(a,c){this.trackererr=new Buffer(c.length-8);c.copy(this.trackererr,0,8);return null};b.prototype.resError=function(a,c){this.trackergate.endJob(this);this.res.writeHead(a,c);this.res.write(h({"failure reason":c}));this.res.end();this.report(6);console.log("-","#"+this.id,a,c);return this.id};b.prototype.expireReq=function(a){return this.resError(504,a)};return b}();(new (function(){function b(a,c,d,b){this.httpsops=a;this.httpsport=c;this.udpport=d;this.trackertimeout=b;this.tick=n(this.tick,this);this.resTracker=n(this.resTracker,this);this.resClient=n(this.resClient,this);this.jobqueue={};this.repqueue=[];this.httpsserver=t.createServer(a,this.resClient);this.udpserver=s.createSocket("udp4",this.resTracker);a=function(a){return function(a,c){return console.log("! HTTPS:",a)}}(this);c=function(a){return function(a){return console.log("! UDP:",a)}}(this);this.httpsserver.on("clientError",a);this.udpserver.on("error",c)}b.prototype.genID=function(){for(var a;!a||a in this.jobqueue;)a=Math.floor(2147483648*Math.random());return a};b.prototype.recReport=function(a,c){var d,b;d=c.id||this.genID();b=c.status;this.repqueue.push([a,d,b]);console.log((new Date(a)).toISOString(),"#"+d,b,r[b]);return d};b.prototype.endJob=function(a){delete this.jobqueue[a.id];return null};b.prototype.resClient=function(a,c){var b;b=new q(a,c,this);if(b.reqerr)return b.reqerr;this.jobqueue[b.id]=b;b.reqConnect();return null};b.prototype.resTracker=function(a,c){var b,e;if(8>a.length)return"Tracker response too short";b=a.readUInt32BE(0);e=a.readUInt32BE(4);e=this.jobqueue[Math.floor(e/2)];if(!e)return"Tracker response not matching any client request";switch(b){case 0:e.report(2);e.parseConnRes(a);e.reqAnnounce();break;case 1:e.report(4);e.parseAnnRes(a);e.resAnnounce();break;case 2:return"Scrape not yet implemented";case 3:e.parseErrRes(a),e.resError(500,"Tracker error: "+e.trackererr)}return null};b.prototype.tick=function(){var a,b,d;for(a=Date.now();0<this.repqueue.length&&a-this.repqueue[0][0]>=1E3*this.trackertimeout;)if(d=this.repqueue.shift(),a=d[0],b=d[1],d=d[2],(b=this.jobqueue[b])&&b.status===d)switch(d){case 1:b.expireReq("Tracker connect timeout");break;case 3:b.expireReq("Tracker announce timeout")}return null};b.prototype.run=function(){this.httpsserver.listen(this.httpsport);this.udpserver.bind(this.udpport);return setInterval(this.tick,1E3)};return b}())(g.httpsops,g.httpsport,g.udpport,g.trackertimeout)).run()}).call(this);
+
+// Generated by CoffeeScript 1.10.0
+
+/*
+Protocol references:
+BitTorrent Specification: https://wiki.theory.org/index.php/BitTorrentSpecification
+UDP Tracker Extension: http://www.rasterbar.com/products/libtorrent/udp_tracker_protocol.html
+ */
+
+(function() {
+  var ANNREQLEN, ANNRESMAX, ANNRESMIN, ANNRESSTEP, CONNREQLEN, CONNRESLEN, EVENT, HEADERLEN, JOBANNREQ, JOBANNRES, JOBCONNREQ, JOBCONNRES, JOBDONE, JOBERR, JOBINIT, Job, Long, STATUS, TrackerGate, bencode, config, dgram, fs, https, parseIPv4, path, querystring, url,
+    bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+
+  https = require('https');
+
+  dgram = require('dgram');
+
+  fs = require('fs');
+
+  path = require('path');
+
+  url = require('url');
+
+  querystring = require('querystring');
+
+  querystring.escape = escape;
+
+  querystring.unescape = unescape;
+
+  Long = require('long');
+
+  config = require('./config.json');
+
+  config.httpsops = {
+    key: fs.readFileSync(path.resolve(config.httpskey)),
+    cert: fs.readFileSync(path.resolve(config.httpscert))
+  };
+
+  EVENT = ['', 'completed', 'started', 'stopped'];
+
+  HEADERLEN = 8;
+
+  CONNREQLEN = 16;
+
+  CONNRESLEN = 16;
+
+  ANNREQLEN = 98;
+
+  ANNRESMIN = 20;
+
+  ANNRESSTEP = 6;
+
+  ANNRESMAX = ANNRESMIN + ANNRESSTEP * 74;
+
+  JOBINIT = 0;
+
+  JOBCONNREQ = 1;
+
+  JOBCONNRES = 2;
+
+  JOBANNREQ = 3;
+
+  JOBANNRES = 4;
+
+  JOBDONE = 5;
+
+  JOBERR = 6;
+
+  STATUS = ['client request received', 'connecting tracker', 'tracker connected', 'announcing to tracker', 'announce response received', 'success', 'error'];
+
+  parseIPv4 = function(str) {
+    var i, j, len, o, octets;
+    octets = str.split('.');
+    if (octets.length !== 4) {
+      return void 0;
+    }
+    for (i = j = 0, len = octets.length; j < len; i = ++j) {
+      o = octets[i];
+      o = parseInt(o);
+      if (isNaN(o) || o < 0 || o > 0xff) {
+        return void 0;
+      }
+      octets[i] = o;
+    }
+    return new Buffer(octets);
+  };
+
+
+  /*
+  Source:
+  https://github.com/Sebmaster/node-libbencode
+   */
+
+  bencode = function(data, prev) {
+    var i, j, len, next, str;
+    if (prev == null) {
+      prev = new Buffer(0);
+    }
+    switch (typeof data) {
+      case 'number':
+        str = 'i' + data + 'e';
+        next = new Buffer(prev.length + Buffer.byteLength(str));
+        prev.copy(next);
+        next.write(str, prev.length);
+        break;
+      case 'string':
+        str = Buffer.byteLength(data) + ':' + data;
+        next = new Buffer(prev.length + Buffer.byteLength(str));
+        prev.copy(next);
+        next.write(str, prev.length, 'binary');
+        break;
+      case 'object':
+        if (data instanceof Array) {
+          next = new Buffer(prev.length + 1);
+          prev.copy(next);
+          next.write('l', prev.length, 'binary');
+          prev = next;
+          for (j = 0, len = data.length; j < len; j++) {
+            i = data[j];
+            prev = bencode(data[i], prev);
+          }
+          next = new Buffer(prev.length + 1);
+          prev.copy(next);
+          next.write('e', prev.length, 'binary');
+        } else if (data instanceof Buffer) {
+          str = data.length + ':';
+          next = new Buffer(prev.length + Buffer.byteLength(str) + data.length);
+          prev.copy(next);
+          next.write(str, prev.length);
+          data.copy(next, prev.length + Buffer.byteLength(str));
+        } else {
+          next = new Buffer(prev.length + 1);
+          prev.copy(next);
+          next.write('d', prev.length, 'binary');
+          prev = next;
+          for (i in data) {
+            prev = bencode(i, prev);
+            prev = bencode(data[i], prev);
+          }
+          next = new Buffer(prev.length + 1);
+          prev.copy(next);
+          next.write('e', prev.length, 'binary');
+        }
+    }
+    return next;
+  };
+
+  Job = (function() {
+    function Job(req1, res1, trackergate) {
+      var err;
+      this.req = req1;
+      this.res = res1;
+      this.trackergate = trackergate;
+      this.id = this.report(JOBINIT);
+      if (err = this.parseReq()) {
+        this.resError(400, err);
+      } else if (err = this.authReq()) {
+        this.resError(403, err);
+      }
+      if (err) {
+        console.log(':', this.req.connection.remoteAddress + ':' + this.req.connection.remotePort, this.req.url);
+        return this.reqerr = err;
+      }
+    }
+
+    Job.prototype.report = function(status) {
+      var date;
+      date = Date.now();
+      this.status = status;
+      return this.trackergate.recReport(date, this);
+    };
+
+    Job.prototype.parseReq = function() {
+      var parse, query;
+      parse = url.parse(this.req.url);
+      path = parse['pathname'].split('/');
+      if (path.length !== 5 || path[0] !== '' || path[4] !== 'announce') {
+        return 'Invalid request path';
+      }
+      this.gatewayauth = path[1];
+      this.trackerhost = path[2];
+      if (this.trackerhost === '') {
+        return 'Invalid tracker hostname';
+      }
+      this.trackerport = parseInt(path[3]);
+      if (isNaN(this.trackerport) || this.trackerport < 0 || this.trackerport > 0xffff) {
+        return 'Invalid tracker port';
+      }
+      this.annreq = {};
+      query = querystring.parse(parse['query']);
+      this.annreq.infohash = new Buffer(query['info_hash'] || '', 'binary');
+      if (this.annreq.infohash.length !== 20) {
+        return 'Invalid info hash';
+      }
+      this.annreq.peerid = new Buffer(query['peer_id'] || '', 'binary');
+      if (this.annreq.peerid.length !== 20) {
+        return 'Invalid peer ID';
+      }
+      this.annreq.downloaded = Long.fromString(query['downloaded'] || '-1');
+      if (this.annreq.downloaded.isNegative()) {
+        return 'Invalid downloaded bytes';
+      }
+      this.annreq.left = Long.fromString(query['left'] || '-1');
+      if (this.annreq.left.isNegative()) {
+        return 'Invalid left bytes';
+      }
+      this.annreq.uploaded = Long.fromString(query['uploaded'] || '-1');
+      if (this.annreq.uploaded.isNegative()) {
+        return 'Invalid uploaded bytes';
+      }
+      this.annreq.event = EVENT.indexOf(query['event'] || '');
+      if (this.annreq.event < 0) {
+        return 'Invalid announce event';
+      }
+      this.annreq.ip = parseIPv4(query['ip'] || this.req.connection.remoteAddress);
+      if (this.annreq.ip === void 0) {
+        return 'Invalid client IP';
+      }
+      this.annreq.key = parseInt(query['key'] || '0', 16);
+      if (isNaN(this.annreq.key) || this.annreq.key < 0 || this.annreq.key > 0xffffffff) {
+        return 'Invalid announce key';
+      }
+      this.annreq.numwant = parseInt(query['numwant'] || '-1');
+      if (isNaN(this.annreq.numwant) || this.annreq.numwant < -1 || this.annreq.numwant > 0x7fffffff) {
+        return 'Invalid number of wanted peers';
+      }
+      this.annreq.port = parseInt(query['port']);
+      if (isNaN(this.annreq.port) || this.annreq.numwant < 0 || this.annreq.port > 0xffff) {
+        return 'Invalid client port';
+      }
+      console.log('>', '#' + this.id, this.req.connection.remoteAddress + ':' + this.req.connection.remotePort, this.trackerhost + ':' + this.trackerport, this.annreq.infohash.toString('hex'));
+      return null;
+    };
+
+    Job.prototype.authReq = function() {
+      if (this.gatewayauth !== config.passkey) {
+        return 'Gateway authentication failed';
+      }
+      return null;
+    };
+
+    Job.prototype.reqConnect = function() {
+      var data, onReqConnect, transid;
+      data = new Buffer(CONNREQLEN);
+      data.write('0000041727101980', 0, 8, 'hex');
+      data.writeUInt32BE(0, 8);
+      transid = this.id * 2;
+      data.writeUInt32BE(transid, 12);
+      onReqConnect = (function(_this) {
+        return function(err, bytes) {
+          if (err) {
+            return _this.resError(500, 'Error connecting to tracker: ' + err.message);
+          }
+          return _this.report(JOBCONNREQ);
+        };
+      })(this);
+      this.trackergate.udpserver.send(data, 0, CONNREQLEN, this.trackerport, this.trackerhost, onReqConnect);
+      return null;
+    };
+
+    Job.prototype.parseConnRes = function(data) {
+      if (data.length < CONNRESLEN) {
+        return this.resError(502, 'Invalid connect response from tracker');
+      }
+      this.connid = new Buffer(8);
+      data.copy(this.connid, 0, 8, 16);
+      return null;
+    };
+
+    Job.prototype.reqAnnounce = function() {
+      var data, onReqAnnounce, transid;
+      data = new Buffer(ANNREQLEN);
+      this.connid.copy(data, 0);
+      data.writeUInt32BE(1, 8);
+      transid = this.id * 2 + 1;
+      data.writeUInt32BE(transid, 12);
+      this.annreq.infohash.copy(data, 16);
+      this.annreq.peerid.copy(data, 36);
+      data.writeUInt32BE(this.annreq.downloaded.getHighBitsUnsigned(), 56);
+      data.writeUInt32BE(this.annreq.downloaded.getLowBitsUnsigned(), 60);
+      data.writeUInt32BE(this.annreq.left.getHighBitsUnsigned(), 64);
+      data.writeUInt32BE(this.annreq.left.getLowBitsUnsigned(), 68);
+      data.writeUInt32BE(this.annreq.uploaded.getHighBitsUnsigned(), 72);
+      data.writeUInt32BE(this.annreq.uploaded.getLowBitsUnsigned(), 76);
+      data.writeUInt32BE(this.annreq.event, 80);
+      this.annreq.ip.copy(data, 84);
+      data.writeUInt32BE(this.annreq.key, 88);
+      data.writeInt32BE(this.annreq.numwant, 92);
+      data.writeUInt16BE(this.annreq.port, 96);
+      onReqAnnounce = (function(_this) {
+        return function(err, bytes) {
+          if (err) {
+            return _this.resError(500, 'Error announcing to tracker: ' + err.message);
+          }
+          return _this.report(JOBANNREQ);
+        };
+      })(this);
+      this.trackergate.udpserver.send(data, 0, ANNREQLEN, this.trackerport, this.trackerhost, onReqAnnounce);
+      return null;
+    };
+
+    Job.prototype.parseAnnRes = function(data) {
+      var peerslen;
+      peerslen = data.length - ANNRESMIN;
+      if (data.length < ANNRESMIN || peerslen % ANNRESSTEP !== 0) {
+        return this.resError(502, 'Invalid announce response from tracker');
+      }
+      this.annres = {};
+      this.annres.interval = data.readUInt32BE(8);
+      this.annres.incomplete = data.readUInt32BE(12);
+      this.annres.complete = data.readUInt32BE(16);
+      this.annres.peers = new Buffer(peerslen);
+      data.copy(this.annres.peers, 0, ANNRESMIN);
+      return null;
+    };
+
+    Job.prototype.resAnnounce = function() {
+      this.trackergate.endJob(this);
+      this.res.writeHead(200);
+      this.res.write(bencode(this.annres), 'binary');
+      this.res.end();
+      this.report(JOBDONE);
+      console.log('<', '#' + this.id, 'S/L/P', this.annres.complete, this.annres.incomplete, this.annres.peers.length / ANNRESSTEP);
+      return this.id;
+    };
+
+    Job.prototype.parseErrRes = function(job, data) {
+      var msglen;
+      msglen = data.length - HEADERLEN;
+      this.trackererr = new Buffer(msglen);
+      data.copy(this.trackererr, 0, HEADERLEN);
+      return null;
+    };
+
+    Job.prototype.resError = function(code, msg) {
+      this.trackergate.endJob(this);
+      this.res.writeHead(code, msg);
+      this.res.write(bencode({
+        'failure reason': msg
+      }));
+      this.res.end();
+      this.report(JOBERR);
+      console.log('-', '#' + this.id, code, msg);
+      return this.id;
+    };
+
+    Job.prototype.expireReq = function(msg) {
+      return this.resError(504, msg);
+    };
+
+    return Job;
+
+  })();
+
+  TrackerGate = (function() {
+    function TrackerGate(httpsops, httpsport, udpport, trackertimeout) {
+      var onHTTPSClientError, onUDPError;
+      this.httpsops = httpsops;
+      this.httpsport = httpsport;
+      this.udpport = udpport;
+      this.trackertimeout = trackertimeout;
+      this.tick = bind(this.tick, this);
+      this.resTracker = bind(this.resTracker, this);
+      this.resClient = bind(this.resClient, this);
+      this.jobqueue = {};
+      this.repqueue = [];
+      this.httpsserver = https.createServer(this.httpsops, this.resClient);
+      this.udpserver = dgram.createSocket('udp4', this.resTracker);
+      onHTTPSClientError = (function(_this) {
+        return function(err, secpair) {
+          return console.log('! HTTPS:', err);
+        };
+      })(this);
+      onUDPError = (function(_this) {
+        return function(err) {
+          return console.log('! UDP:', err);
+        };
+      })(this);
+      this.httpsserver.on('clientError', onHTTPSClientError);
+      this.udpserver.on('error', onUDPError);
+    }
+
+    TrackerGate.prototype.genID = function() {
+      var jobid;
+      while (!jobid || jobid in this.jobqueue) {
+        jobid = Math.floor(Math.random() * 0x80000000);
+      }
+      return jobid;
+    };
+
+    TrackerGate.prototype.recReport = function(date, job) {
+      var jobid, rep, status;
+      jobid = job.id || this.genID();
+      status = job.status;
+      rep = [date, jobid, status];
+      this.repqueue.push(rep);
+      console.log(new Date(date).toISOString(), '#' + jobid, status, STATUS[status]);
+      return jobid;
+    };
+
+    TrackerGate.prototype.endJob = function(job) {
+      delete this.jobqueue[job.id];
+      return null;
+    };
+
+    TrackerGate.prototype.resClient = function(req, res) {
+      var job;
+      job = new Job(req, res, this);
+      if (job.reqerr) {
+        return job.reqerr;
+      }
+      this.jobqueue[job.id] = job;
+      job.reqConnect();
+      return null;
+    };
+
+    TrackerGate.prototype.resTracker = function(msg, rinfo) {
+      var action, job, jobid, transid;
+      if (msg.length < HEADERLEN) {
+        return 'Tracker response too short';
+      }
+      action = msg.readUInt32BE(0);
+      transid = msg.readUInt32BE(4);
+      jobid = Math.floor(transid / 2);
+      job = this.jobqueue[jobid];
+      if (!job) {
+        return 'Tracker response not matching any client request';
+      }
+      switch (action) {
+        case 0:
+          job.report(JOBCONNRES);
+          job.parseConnRes(msg);
+          job.reqAnnounce();
+          break;
+        case 1:
+          job.report(JOBANNRES);
+          job.parseAnnRes(msg);
+          job.resAnnounce();
+          break;
+        case 2:
+          return 'Scrape not yet implemented';
+        case 3:
+          job.parseErrRes(msg);
+          job.resError(500, 'Tracker error: ' + job.trackererr);
+      }
+      return null;
+    };
+
+    TrackerGate.prototype.tick = function() {
+      var date, job, jobid, ref, status;
+      date = Date.now();
+      while (this.repqueue.length > 0 && date - this.repqueue[0][0] >= this.trackertimeout * 1000) {
+        ref = this.repqueue.shift(), date = ref[0], jobid = ref[1], status = ref[2];
+        job = this.jobqueue[jobid];
+        if (!job || job.status !== status) {
+          continue;
+        }
+        switch (status) {
+          case JOBCONNREQ:
+            job.expireReq('Tracker connect timeout');
+            break;
+          case JOBANNREQ:
+            job.expireReq('Tracker announce timeout');
+        }
+      }
+      return null;
+    };
+
+    TrackerGate.prototype.run = function() {
+      this.httpsserver.listen(this.httpsport, '0.0.0.0');
+      this.udpserver.bind(this.udpport);
+      return setInterval(this.tick, 1000);
+    };
+
+    return TrackerGate;
+
+  })();
+
+  new TrackerGate(config.httpsops, config.httpsport, config.udpport, config.trackertimeout).run();
+
+}).call(this);
