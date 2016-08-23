@@ -138,11 +138,11 @@ class Job
     @annreq.peerid = new Buffer(query['peer_id'] or '', 'binary')
     return 'Invalid peer ID' if @annreq.peerid.length != 20
     @annreq.downloaded = Long.fromString(query['downloaded'] or '-1')
-    return 'Invalid downloaded bytes' if @annreq.downloaded < 0
+    return 'Invalid downloaded bytes' if @annreq.downloaded.isNegative()
     @annreq.left = Long.fromString(query['left'] or '-1')
-    return 'Invalid left bytes' if @annreq.left < 0
+    return 'Invalid left bytes' if @annreq.left.isNegative()
     @annreq.uploaded = Long.fromString(query['uploaded'] or '-1')
-    return 'Invalid uploaded bytes' if @annreq.uploaded < 0
+    return 'Invalid uploaded bytes' if @annreq.uploaded.isNegative()
     @annreq.event = EVENT.indexOf(query['event'] or '')
     return 'Invalid announce event' if @annreq.event < 0
     @annreq.ip = parseIPv4(query['ip'] or @req.connection.remoteAddress) # only IPv4 supported for now
@@ -187,12 +187,12 @@ class Job
     data.writeUInt32BE(transid, 12)
     @annreq.infohash.copy(data, 16)
     @annreq.peerid.copy(data, 36)
-    data.writeUInt32BE(@annreq.downloaded.high, 56)
-    data.writeUInt32BE(@annreq.downloaded.low, 60)
-    data.writeUInt32BE(@annreq.left.high, 64)
-    data.writeUInt32BE(@annreq.left.low, 68)
-    data.writeUInt32BE(@annreq.uploaded.high, 72)
-    data.writeUInt32BE(@annreq.uploaded.low, 76)
+    data.writeUInt32BE(@annreq.downloaded.getHighBitsUnsigned(), 56)
+    data.writeUInt32BE(@annreq.downloaded.getLowBitsUnsigned(), 60)
+    data.writeUInt32BE(@annreq.left.getHighBitsUnsigned(), 64)
+    data.writeUInt32BE(@annreq.left.getLowBitsUnsigned(), 68)
+    data.writeUInt32BE(@annreq.uploaded.getHighBitsUnsigned(), 72)
+    data.writeUInt32BE(@annreq.uploaded.getLowBitsUnsigned(), 76)
     data.writeUInt32BE(@annreq.event, 80)
     @annreq.ip.copy(data, 84)
     data.writeUInt32BE(@annreq.key, 88)
@@ -246,7 +246,7 @@ class TrackerGate
   constructor: (@httpsops, @httpsport, @udpport, @trackertimeout) ->
     @jobqueue = {}
     @repqueue = []
-    @httpsserver = https.createServer(httpsops, @resClient)
+    @httpsserver = https.createServer(@httpsops, @resClient)
     @udpserver = dgram.createSocket('udp4', @resTracker)
     onHTTPSClientError = (err, secpair) =>
       console.log('! HTTPS:', err) ## not sure how to get client address and port, see: http://stackoverflow.com/questions/25257709
@@ -316,7 +316,7 @@ class TrackerGate
     return null
 
   run: () ->
-    @httpsserver.listen(@httpsport)
+    @httpsserver.listen(@httpsport, '0.0.0.0')
     @udpserver.bind(@udpport)
     setInterval(@tick, 1000)
 
