@@ -224,7 +224,7 @@ class Job
     console.log('<', '#' + @id, 'S/L/P', @annres.complete, @annres.incomplete, @annres.peers.length / ANNRESSTEP)
     return @id
 
-  parseErrRes: (job, data) ->
+  parseErrRes: (data) ->
     msglen = data.length - HEADERLEN
     @trackererr = new Buffer(msglen)
     data.copy(@trackererr, 0, HEADERLEN)

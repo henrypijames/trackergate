@@ -325,7 +325,7 @@ UDP Tracker Extension: http://www.rasterbar.com/products/libtorrent/udp_tracker_
       return this.id;
     };
 
-    Job.prototype.parseErrRes = function(job, data) {
+    Job.prototype.parseErrRes = function(data) {
       var msglen;
       msglen = data.length - HEADERLEN;
       this.trackererr = new Buffer(msglen);
